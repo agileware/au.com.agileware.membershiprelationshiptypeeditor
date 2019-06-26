@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/membershiprelationshiptypeeditor/settings</path>
+    <page_callback>CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes</page_callback>
+    <title>Settings</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+</menu>
