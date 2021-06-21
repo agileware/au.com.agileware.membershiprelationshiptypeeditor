@@ -21,6 +21,7 @@ Installation
 1. Download the [latest version of this extension](https://github.com/agileware/au.com.agileware.membershiprelationshiptypeeditor/archive/master.zip)
 1. Unzip in the CiviCRM extension directory, as defined in 'System Settings / Directories'.
 1. Go to "Administer / System Settings / Extensions" and enable the "Membership Relationship Type Editor (au.com.agileware.membershiprelationshiptypeeditor)" extension.
+1. Go to "Administer / System Settings / Scheduled Jobs" and check that the **Update Memberships based on Membershiptypes** Scheduled Job is enabled. The run frequency should be "Every time cron job is run"
 
 Usage
 ------
