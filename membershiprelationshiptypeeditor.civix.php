@@ -79,13 +79,6 @@ class CRM_Membershiprelationshiptypeeditor_ExtensionUtil {
 
 use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
 
-function _membershiprelationshiptypeeditor_civix_mixin_polyfill() {
-  if (!class_exists('CRM_Extension_MixInfo')) {
-    $polyfill = __DIR__ . '/mixin/polyfill.php';
-    (require $polyfill)(E::LONG_NAME, E::SHORT_NAME, E::path());
-  }
-}
-
 /**
  * (Delegated) Implements hook_civicrm_config().
  *
@@ -112,7 +105,6 @@ function _membershiprelationshiptypeeditor_civix_civicrm_config(&$config = NULL)
 
   $include_path = $extRoot . PATH_SEPARATOR . get_include_path();
   set_include_path($include_path);
-  _membershiprelationshiptypeeditor_civix_mixin_polyfill();
 }
 
 /**
@@ -125,7 +117,6 @@ function _membershiprelationshiptypeeditor_civix_civicrm_install() {
   if ($upgrader = _membershiprelationshiptypeeditor_civix_upgrader()) {
     $upgrader->onInstall();
   }
-  _membershiprelationshiptypeeditor_civix_mixin_polyfill();
 }
 
 /**
@@ -166,7 +157,6 @@ function _membershiprelationshiptypeeditor_civix_civicrm_enable() {
       $upgrader->onEnable();
     }
   }
-  _membershiprelationshiptypeeditor_civix_mixin_polyfill();
 }
 
 /**

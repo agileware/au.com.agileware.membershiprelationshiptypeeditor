@@ -6,8 +6,6 @@ use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
  * This is used for documentation and validation.
  *
  * @param array $spec description of fields supported by this API call
- * @return void
- * @see http://wiki.civicrm.org/confluence/display/CRMDOC/API+Architecture+Standards
  */
 function _civicrm_api3_membership_type_Updatemembershipsbyrelationships_spec(&$spec) {
 
@@ -26,10 +24,10 @@ function civicrm_api3_membership_type_Updatemembershipsbyrelationships($params) 
   $membershipTypes = new CRM_Membershiprelationshiptypeeditor_MembershipType();
   $membershipTypesProcessed = $membershipTypes->process();
 
-  $response = array(
+  $response = [
     'processed' => $membershipTypesProcessed,
     'count'     => count($membershipTypesProcessed),
-  );
+  ];
 
   return civicrm_api3_create_success($response, $params, 'MembershipType', 'Updatemembershipsbyrelationships');
 }

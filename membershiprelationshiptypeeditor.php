@@ -84,7 +84,7 @@ function membershiprelationshiptypeeditor_civicrm_entityTypes(&$entityTypes) {
  * @param $form
  */
 function membershiprelationshiptypeeditor_civicrm_buildForm($formName, &$form) {
-  if ($formName == "CRM_Member_Form_MembershipType" && isset($form->_id) && isset($form->_action) && $form->_action == CRM_Core_Action::UPDATE) {
+  if ($formName === 'CRM_Member_Form_MembershipType' && isset($form->_id) && isset($form->_action) && $form->_action == CRM_Core_Action::UPDATE) {
     CRM_Core_Resources::singleton()->addScriptFile('au.com.agileware.membershiprelationshiptypeeditor', 'js/membership_type.js');
     $form->assign('membershipRecordsExists', FALSE);
     $form->_elements[$form->_elementIndex['relationship_type_id']]->_flagFrozen = 0;
@@ -93,11 +93,9 @@ function membershiprelationshiptypeeditor_civicrm_buildForm($formName, &$form) {
 
   if ($formName == "CRM_Member_Form_MembershipType") {
     $form->assign('formAction', $form->_action);
-
-    $templatePath = realpath(dirname(__FILE__) . "/templates");
-    CRM_Core_Region::instance('page-footer')->add(array(
-      'template' => "{$templatePath}/membership_type_relationship.tpl",
-    ));
+    CRM_Core_Region::instance('page-footer')->add([
+      'template' => E::path('templates/membership_type_relationship.tpl'),
+    ]);
   }
 }
 
@@ -113,11 +111,11 @@ function membershiprelationshiptypeeditor_civicrm_postProcess($formName, &$form)
     $submittedRelationshipTypes = $form->_submitValues['relationship_type_id'];
 
     if (!is_array($defaultRelationshipTypes)) {
-      $defaultRelationshipTypes = array();
+      $defaultRelationshipTypes = [];
     }
 
     if (!is_array($submittedRelationshipTypes)) {
-      $submittedRelationshipTypes = array();
+      $submittedRelationshipTypes = [];
     }
 
     $modifiedRelationshipTypes = array_diff($defaultRelationshipTypes, $submittedRelationshipTypes);
@@ -126,7 +124,7 @@ function membershiprelationshiptypeeditor_civicrm_postProcess($formName, &$form)
     if (count($modifiedRelationshipTypes) > 0) {
       $typesToProcess = Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
       if ($typesToProcess == '' || $typesToProcess == NULL) {
-        $typesToProcess = array();
+        $typesToProcess = [];
       }
       $typesToProcess[$form->_id] = TRUE;
       Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $typesToProcess);
@@ -135,53 +133,24 @@ function membershiprelationshiptypeeditor_civicrm_postProcess($formName, &$form)
 }
 
 /**
- * Add schedule job to process pending membership types.
- *
- * Implements hook_civicrm_managed().
- *
- * Generate a list of entities to create/deactivate/delete when this module
- * is installed, disabled, uninstalled.
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_managed
- */
-function membershiprelationshiptypeeditor_civicrm_managed(&$entities) {
-  $entities[] = array(
-    'module' => 'au.com.agileware.membershiprelationshiptypeeditor',
-    'name' => 'membershipType_relationshipType_process_cron',
-    'entity' => 'Job',
-    'update' => 'never',
-    'params' => array(
-      'version' => 3,
-      'run_frequency' => 'Always',
-      'name' => 'Update Memberships based on Membershiptypes',
-      'description' => 'Process pending membership types in which relationship types are updated.',
-      'api_entity' => 'MembershipType',
-      'api_action' => 'updatemembershipsbyrelationships',
-      'parameters' => "",
-      'is_active'  => '1',
-    ),
-  );
-}
-
-/**
  * Manipulates CiviCRM menu.
  *
  * @param $menu
  */
 function membershiprelationshiptypeeditor_civicrm_navigationMenu(&$menu) {
-  _membershiprelationshiptypeeditor_civix_insert_navigation_menu($menu, 'Administer', array(
+  _membershiprelationshiptypeeditor_civix_insert_navigation_menu($menu, 'Administer', [
     'label' => E::ts('Membership Relationship Type Editor'),
     'name' => 'MembershipRelationshipTypeEditor',
     'permission' => 'administer CiviCRM',
     'operator' => 'OR',
     'separator' => 0,
-  ));
-  _membershiprelationshiptypeeditor_civix_insert_navigation_menu($menu, 'Administer/MembershipRelationshipTypeEditor', array(
+  ]);
+  _membershiprelationshiptypeeditor_civix_insert_navigation_menu($menu, 'Administer/MembershipRelationshipTypeEditor', [
     'label' => E::ts('Settings'),
     'name' => 'MembershipRelationshipTypeEditorSettings',
     'permission' => 'administer CiviCRM',
     'operator' => 'OR',
     'url' => 'civicrm/membershiprelationshiptypeeditor/settings',
     'separator' => 0,
-  ));
+  ]);
 }

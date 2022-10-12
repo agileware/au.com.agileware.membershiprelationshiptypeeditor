@@ -1,5 +1,7 @@
 <?php
 
+use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
+
 class CRM_Membershiprelationshiptypeeditor_MembershipType {
 
   /**
@@ -10,37 +12,36 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
    */
   public function process() {
     $membershipTypesToProcess = Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
+    if (empty($membershipTypesToProcess) || !is_array($membershipTypesToProcess)) {
+      return [];
+    }
 
     $toRemoveMembershipTypes = [];
 
-    if (is_array($membershipTypesToProcess)) {
-      foreach ($membershipTypesToProcess as $membershipTypeToProcess => $value) {
-        if ($value) {
-          try {
-
-            try {
-              civicrm_api3('MembershipType', 'getsingle', array(
-                'id' => $membershipTypeToProcess,
-              ));
-            }
-            catch (CiviCRM_API3_Exception $e) {
-              // Membership type not found, Remove it.
-              continue;
-              $toRemoveMembershipTypes[] = $membershipTypeToProcess;
-            }
-
-            $this->deleteChildMemberships($membershipTypeToProcess);
-            $this->updateRelatedMemberships($membershipTypeToProcess);
-
-            $toRemoveMembershipTypes[] = $membershipTypeToProcess;
-
-          }
-          catch (CiviCRM_API3_Exception $e) {
-
-          }
-        }
+    foreach ($membershipTypesToProcess as $membershipTypeIDToProcess => $process) {
+      if (!$process) {
+        continue;
       }
 
+      $membershipType = \Civi\Api4\MembershipType::get(FALSE)
+        ->addWhere('id', '=', $membershipTypeIDToProcess)
+        ->execute()
+        ->first();
+      if (empty($membershipType)) {
+        // Membership type not found, Remove it.
+        \Civi::log(E::SHORT_NAME)->error("Error: Membership type with ID: {$membershipTypeIDToProcess} not found.");
+        $toRemoveMembershipTypes[] = $membershipTypeIDToProcess;
+        continue;
+      }
+
+      try {
+        $this->deleteChildMemberships($membershipTypeIDToProcess);
+        $this->updateRelatedMemberships($membershipTypeIDToProcess);
+        $toRemoveMembershipTypes[] = $membershipTypeIDToProcess;
+      }
+      catch (Exception $e) {
+        \Civi::log(E::SHORT_NAME)->error("Error processing membership type ID: {$membershipTypeIDToProcess}: " . $e->getMessage());
+      }
     }
 
     foreach ($toRemoveMembershipTypes as $toRemoveMembershipType) {
@@ -57,20 +58,18 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
   /**
    * Update related memberships.
    *
-   * @param $membershipTypeId
+   * @param int $membershipTypeId
    * @throws CRM_Core_Exception
    * @throws CiviCRM_API3_Exception
    */
-  private function updateRelatedMemberships($membershipTypeId) {
-    $ownerMemberships = civicrm_api3('Membership', 'get', [
-      'sequential'          => 1,
-      'owner_membership_id' => ['IS NULL' => 1],
-      'membership_type_id'  => $membershipTypeId,
-      'options' => ['limit' => 0],
-    ]);
+  private function updateRelatedMemberships(int $membershipTypeId) {
+    // Get all the "owner" memberships for the specified membership type
+    $ownerMemberships = \Civi\Api4\Membership::get(FALSE)
+      ->addWhere('owner_membership_id', 'IS NOT NULL')
+      ->addWhere('membership_type_id', '=', $membershipTypeId)
+      ->execute();
 
-    $ownerMemberships = $ownerMemberships['values'];
-
+    // Create related (inherited) memberships for each of the "owner" memberships.
     foreach ($ownerMemberships as $ownerMembership) {
       $ownerMembershipBAO = new CRM_Member_BAO_Membership();
       $ownerMembershipBAO->id = $ownerMembership['id'];
@@ -81,23 +80,23 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
   }
 
   /**
-   * Delete child memberships
+   * Delete all the child memberships for the specified membership type
    *
-   * @param $membershipTypeId
+   * @param int $membershipTypeId
    * @throws CiviCRM_API3_Exception
    */
-  private function deleteChildMemberships($membershipTypeId) {
-    $memberships = civicrm_api3('Membership', 'get', [
-      'sequential'          => 1,
-      'owner_membership_id' => ['IS NOT NULL' => 1],
-      'membership_type_id'  => $membershipTypeId,
-    ]);
+  private function deleteChildMemberships(int $membershipTypeId) {
+    // Get all the child memberships with the specified membership type
+    $ownerMemberships = \Civi\Api4\Membership::get(FALSE)
+      ->addWhere('owner_membership_id', 'IS NOT NULL')
+      ->addWhere('membership_type_id', '=', $membershipTypeId)
+      ->execute();
 
-    $memberships = $memberships['values'];
-    foreach ($memberships as $membership) {
-      civicrm_api3('Membership', 'delete', array(
-        'id' => $membership['id'],
-      ));
+    // Delete all the child memberships with the specified membership type
+    foreach ($ownerMemberships as $membership) {
+      \Civi\Api4\Membership::delete(FALSE)
+        ->addWhere('id', '=', $membership['id'])
+        ->execute();
     }
   }
 
