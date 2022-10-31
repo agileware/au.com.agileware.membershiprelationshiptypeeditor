@@ -10,14 +10,14 @@ use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC/API+Architecture+Standards
  */
 function _civicrm_api3_membership_type_Addmembershiptypesinqueue_spec(&$spec) {
-  $spec['membershiptypes'] = array(
-    'title'        => ts('Membership Types'),
+  $spec['membershiptypes'] = [
+    'title'        => E::ts('Membership Types'),
     'name'         => 'membershiptypes',
     'api.required' => TRUE,
     'type'         => CRM_Utils_Type::T_INT,
     'api.multiple' => 1,
     'options' => CRM_Member_PseudoConstant::membershipType(),
-  );
+  ];
 }
 
 /**
@@ -32,19 +32,19 @@ function _civicrm_api3_membership_type_Addmembershiptypesinqueue_spec(&$spec) {
 function civicrm_api3_membership_type_Addmembershiptypesinqueue($params) {
   $membeshipTypes = $params['membershiptypes'];
   if ($membeshipTypes != '' && !is_array($membeshipTypes)) {
-    $membeshipTypes = array($membeshipTypes);
+    $membeshipTypes = [$membeshipTypes];
   }
 
   $typesToProcess = Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
   if ($typesToProcess == '' || $typesToProcess == NULL) {
-    $typesToProcess = array();
+    $typesToProcess = [];
   }
 
   foreach ($membeshipTypes as $membeshipType) {
     $typesToProcess[$membeshipType] = TRUE;
   }
   Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $typesToProcess);
-  return civicrm_api3_create_success(array(
+  return civicrm_api3_create_success([
     'success' => count($membeshipTypes),
-  ), $params, 'MembershipType', 'Updatemembershipsbyrelationships');
+  ], $params, 'MembershipType', 'Updatemembershipsbyrelationships');
 }
