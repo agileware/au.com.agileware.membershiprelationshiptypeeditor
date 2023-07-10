@@ -65,7 +65,7 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
   private function updateRelatedMemberships(int $membershipTypeId) {
     // Get all the "owner" memberships for the specified membership type
     $ownerMemberships = \Civi\Api4\Membership::get(FALSE)
-      ->addWhere('owner_membership_id', 'IS NOT NULL')
+      ->addWhere('owner_membership_id', 'IS NULL')
       ->addWhere('membership_type_id', '=', $membershipTypeId)
       ->execute();
 
