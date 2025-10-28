@@ -9,6 +9,8 @@ use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
 class CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes extends CRM_Core_Form {
 
   public function buildQuickForm() {
+    $defaults = [];
+
     $this->add(
       'select2',
       'membership_types',
@@ -19,6 +21,13 @@ class CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes extends CR
         'multiple' => TRUE,
       ]
     );
+    // Set the form defaults to the membership type keys that are TRUE in the setting
+    $defaults['membership_types'] = array_keys(
+      array_filter(
+        Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process')
+      )
+    );
+
     $this->addButtons([
       [
         'type' => 'submit',
@@ -27,6 +36,7 @@ class CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes extends CR
       ],
     ]);
 
+    $this->setDefaults($defaults);
     $this->assign('elementNames', $this->getRenderableElementNames());
     parent::buildQuickForm();
   }

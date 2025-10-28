@@ -60,7 +60,6 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
    *
    * @param int $membershipTypeId
    * @throws CRM_Core_Exception
-   * @throws CiviCRM_API3_Exception
    */
   private function updateRelatedMemberships(int $membershipTypeId) {
     // Get all the "owner" memberships for the specified membership type
@@ -83,7 +82,9 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
    * Delete all the child memberships for the specified membership type
    *
    * @param int $membershipTypeId
-   * @throws CiviCRM_API3_Exception
+   *
+   * @throws \CRM_Core_Exception
+   * @throws \Civi\API\Exception\UnauthorizedException
    */
   private function deleteChildMemberships(int $membershipTypeId) {
     // Get all the child memberships with the specified membership type
