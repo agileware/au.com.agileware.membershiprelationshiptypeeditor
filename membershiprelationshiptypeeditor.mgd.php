@@ -1,5 +1,14 @@
 <?php
 
+use Civi\Api4\Extension;
+
+$hasCronPlus = Extension::get(FALSE)
+                        ->addWhere('key', '=', 'cronplus')
+                        ->addWhere('status', '=', 'installed')
+                        ->selectRowCount()
+                        ->execute()
+                        ->count() > 0;
+
 return [
   [
     'module' => 'au.com.agileware.membershiprelationshiptypeeditor',
@@ -31,10 +40,12 @@ return [
       'api_action' => 'queueallmembershiptypesforupdate',
       'parameters' => '',
       'is_active'  => '1',
-      'api.Cronplus.create' => [
-        'job_id'     => '$value.id',
-        'cron'       => '0 1 * * *'
-      ]
+      ...($hasCronPlus ? [
+          'api.Cronplus.create' => [
+            'job_id'     => '$value.id',
+            'cron'       => '0 1 * * *'
+          ]
+        ] : [])
     ],
   ],
 ];
