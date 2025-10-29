@@ -1,16 +1,19 @@
 <?php
 
+use Civi\Api4\MembershipType;
 use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
 
 class CRM_Membershiprelationshiptypeeditor_MembershipType {
 
   /**
-   * Process the pending updated membership types.
+   * Process the queued updated membership types.
+   * Note that this function will remove all membership types from the queue that are processed successfully
    *
    * @return array
    * @throws CRM_Core_Exception
    */
   public function process() {
+    // Retrieve the Membership types in the queue "setting"
     $membershipTypesToProcess = Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
     if (empty($membershipTypesToProcess) || !is_array($membershipTypesToProcess)) {
       return [];
@@ -18,15 +21,14 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
 
     $toRemoveMembershipTypes = [];
 
-    foreach ($membershipTypesToProcess as $membershipTypeIDToProcess => $process) {
-      if (!$process) {
-        continue;
-      }
+    $loadedMembershipTypes = MembershipType::get(FALSE)
+                                           ->addWhere('id', 'IN', array_filter($membershipTypesToProcess))
+                                           ->execute()
+                                           ->indexBy('id');
 
-      $membershipType = \Civi\Api4\MembershipType::get(FALSE)
-        ->addWhere('id', '=', $membershipTypeIDToProcess)
-        ->execute()
-        ->first();
+    foreach (array_keys($membershipTypesToProcess) as $membershipTypeIDToProcess) {
+      $membershipType = $loadedMembershipTypes[$membershipTypeIDToProcess] ?? NULL;
+
       if (empty($membershipType)) {
         // Membership type not found, Remove it.
         \Civi::log(E::SHORT_NAME)->error("Error: Membership type with ID: {$membershipTypeIDToProcess} not found.");
@@ -34,6 +36,7 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
         continue;
       }
 
+      // Remove and then re-add all inherit memberships for the given relationship type, then remove from the queue.
       try {
         $this->deleteChildMemberships($membershipTypeIDToProcess);
         $this->updateRelatedMemberships($membershipTypeIDToProcess);
@@ -50,6 +53,7 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
       }
     }
 
+    // Reset the queue to include only membership types that failed to process this time.
     Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $membershipTypesToProcess);
 
     return $toRemoveMembershipTypes;
