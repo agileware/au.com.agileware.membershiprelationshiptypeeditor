@@ -10,27 +10,29 @@ On the Membership Type page, the message: "You cannot modify relationship type b
 If any change is made to the Relationship Types field on the Membership Type edit page then this extension:
 
 1. Displays a message and confirmation prompt to the user. Message informs them that the Relationship Types for this membership type have changed, affected memberships will be updated. Requests confirmation to proceed with the change.
-1. The user can then confirm or cancel this change.
-1. If the user confirms the change, then all affected inherited memberships will be re-calculated in the background using the CiviCRM batch API, executed by a Scheduled Task.
-1. This process may take some time to complete depending on the changes and how many membership exist in the database.
+2. The user can then confirm or cancel this change.
+3. If the user confirms the change, then all affected inherited memberships will be re-calculated in the background using the CiviCRM batch API, executed by a Scheduled Task.
+4. This process may take some time to complete depending on the changes and how many membership exist in the database.
 
 
 Installation
 ------
 
 1. Download the [latest version of this extension](https://github.com/agileware/au.com.agileware.membershiprelationshiptypeeditor/archive/master.zip)
-1. Unzip in the CiviCRM extension directory, as defined in 'System Settings / Directories'.
-1. Go to "Administer / System Settings / Extensions" and enable the "Membership Relationship Type Editor (au.com.agileware.membershiprelationshiptypeeditor)" extension.
-1. Go to "Administer / System Settings / Scheduled Jobs" and check that the **Update Memberships based on Membershiptypes** Scheduled Job is enabled. The run frequency should be "Every time cron job is run"
+2. Unzip in the CiviCRM extension directory, as defined in 'System Settings / Directories'.
+3. Go to "Administer / System Settings / Extensions" and enable the "Membership Relationship Type Editor (au.com.agileware.membershiprelationshiptypeeditor)" extension.
+4. Go to "Administer / System Settings / Scheduled Jobs" and check that the **Update Memberships based on Membershiptypes** Scheduled Job is enabled. The run frequency should be "Every time cron job is run"
 
 Usage
 ------
 
 1. After enabling the extension, edit an existing Membership Type.
-1. Change the values for the inherited Relationship Type field.
-1. Click save and confirm the change.
-1. The affected inherited memberships will be re-calculated in the background.
-
+2. Change the values for the inherited Relationship Type field.
+3. Click save and confirm the change.
+4. The affected inherited memberships will be re-calculated in the background.
+5. Memberships will not be recalculated until the next cron run. If you want to update immediately, you can do so using the Scheduled Jobs interface or using your API command line, e.g.:
+   ```wp --user=cron --url=https://example.org --path=$DOCUMENT_ROOT civicrm api MembershipType.updatemembershipsbyrelationships```
+6. A job is run daily - at 1 a.m. if cronplus is installed - to queue recalculation of all inherited memberships.
 
 About the Authors
 ------
