@@ -1,5 +1,6 @@
 <?php
 
+use Civi\Api4\Membership;
 use Civi\Api4\MembershipType;
 use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
 
@@ -67,7 +68,7 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
    */
   private function updateRelatedMemberships(int $membershipTypeId) {
     // Get all the "owner" memberships for the specified membership type
-    $ownerMemberships = \Civi\Api4\Membership::get(FALSE)
+    $ownerMemberships = Membership::get(FALSE)
       ->addWhere('owner_membership_id', 'IS NULL')
       ->addWhere('membership_type_id', '=', $membershipTypeId)
       ->execute();
@@ -91,17 +92,38 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
    * @throws \Civi\API\Exception\UnauthorizedException
    */
   private function deleteChildMemberships(int $membershipTypeId) {
-    // Get all the child memberships with the specified membership type
-    $ownerMemberships = \Civi\Api4\Membership::get(FALSE)
+    // Get all the parent memberships with the specified membership type
+    $ownerMembershipIds = Membership::get(FALSE)
+      ->addSelect('owner_membership_id', 'COUNT(id) as inherited')
       ->addWhere('owner_membership_id', 'IS NOT NULL')
       ->addWhere('membership_type_id', '=', $membershipTypeId)
-      ->execute();
+      ->setGroupBy(['owner_membership_id', 'membership_type_id'])
+      ->execute()
+      ->column('owner_membership_id');
 
-    // Delete all the child memberships with the specified membership type
-    foreach ($ownerMemberships as $membership) {
-      \Civi\Api4\Membership::delete(FALSE)
-        ->addWhere('id', '=', $membership['id'])
-        ->execute();
+    foreach ($ownerMembershipIds as $membership_id) {
+      // Get the Contact ID for the owner membership
+      $membership = Membership::get(FALSE)
+        ->addSelect('membership_type_id', 'contact_id')
+        ->addWhere('id', '=', $membership_id)
+        ->execute()
+        ->first();
+
+      // Find all the expected inherited membership contacts
+      $related = CRM_Member_BAO_Membership::checkMembershipRelationship($membership['membership_type_id'], $membership['contact_id'], CRM_Core_Action::ADD & CRM_Core_Action::UPDATE);
+      $related = array_filter($related, fn($status) => $status == CRM_Contact_BAO_Relationship::CURRENT);
+
+      // Create the delete action
+      $deleteAction = Membership::delete(FALSE)
+        ->addWhere('owner_membership_id', '=', $membership_id);
+
+      // Exclude inherited memberships for the expected contacts from deletion if any found.
+      if(!empty($related)) {
+        $deleteAction->addWhere('contact_id', 'NOT IN', array_keys($related));
+      }
+
+      // Execute removal of inherited memberships that no longer meet the conditions.
+      $deleteAction->execute();
     }
   }
 
