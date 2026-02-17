@@ -22,8 +22,10 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
 
     $toRemoveMembershipTypes = [];
 
+    $filtered = array_filter($membershipTypesToProcess);
+
     $loadedMembershipTypes = MembershipType::get(FALSE)
-                                           ->addWhere('id', 'IN', array_filter($membershipTypesToProcess))
+                                           ->addWhere('id', 'IN', array_keys($filtered))
                                            ->execute()
                                            ->indexBy('id');
 
