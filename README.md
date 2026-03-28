@@ -29,10 +29,10 @@ Usage
 1. After enabling the extension, edit an existing Membership Type.
 2. Change the values for the inherited Relationship Type field.
 3. Click save and confirm the change.
-4. The affected inherited memberships will be re-calculated in the background.
-5. Memberships will not be recalculated until the next cron run. If you want to update immediately, you can do so using the Scheduled Jobs interface or using your API command line, e.g.:
+4. The ```updatemembershipsbyrelationships``` Scheduled Job will recalculate Memberships for one Membership Type each time it executes. Default schedule is Daily. This is to avoid causing performance issues on large sites. If you want to update immediately, you execute the ```updatemembershipsbyrelationships``` Scheduled Job manually or use the WordPress CiviCRM API, eg.:
    ```wp --user=cron --url=https://example.org --path=$DOCUMENT_ROOT civicrm api MembershipType.updatemembershipsbyrelationships```
-6. A job is run daily - at 1 a.m. if cronplus is installed - to queue recalculation of all inherited memberships.
+5. The ```queueallmembershiptypesforupdate``` Scheduled Job will add all Membership Types with an inherited Relationship Type to the queue for recalculation. Default schedule is Monthly. This is intended to catch any missing memberships that may occur in CiviCRM (for a variety of buggy reasons).
+7. If you have more than 30 Membership Types and hundreds (or more) Memberships in your CiviCRM site, then you will need to adjust the scheduling of the Scheduled Jobs to avoid an overlap.
 
 About the Authors
 ------

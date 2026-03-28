@@ -17,13 +17,19 @@ return [
     'update' => 'never',
     'params' => [
       'version' => 3,
-      'run_frequency' => 'Always',
+      'run_frequency' => 'Daily',
       'name' => 'Update Memberships based on Membershiptypes',
       'description' => 'Process pending membership types in which relationship types are updated.',
       'api_entity' => 'MembershipType',
       'api_action' => 'updatemembershipsbyrelationships',
       'parameters' => '',
       'is_active'  => '1',
+      ...($hasCronPlus ? [
+        'api.Cronplus.create' => [
+          'job_id'     => '$value.id',
+          'cron'       => '0 1 * * *'
+        ]
+      ] : [])
     ],
   ],
   [
@@ -33,7 +39,7 @@ return [
     'update' => 'never',
     'params' => [
       'version' => 3,
-      'run_frequency' => 'Daily',
+      'run_frequency' => 'Monthly',
       'name' => 'Queue all membership types for update',
       'description' => 'Adds all active membership types to the next processing queue, to ensure any changes that have been queued for processing already get executed.',
       'api_entity' => 'MembershipType',
@@ -43,7 +49,7 @@ return [
       ...($hasCronPlus ? [
           'api.Cronplus.create' => [
             'job_id'     => '$value.id',
-            'cron'       => '0 1 * * *'
+            'cron'       => '0 0 1 * *'
           ]
         ] : [])
     ],
