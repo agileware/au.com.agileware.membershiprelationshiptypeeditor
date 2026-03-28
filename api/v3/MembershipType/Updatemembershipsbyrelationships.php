@@ -22,11 +22,11 @@ function _civicrm_api3_membership_type_Updatemembershipsbyrelationships_spec(&$s
  */
 function civicrm_api3_membership_type_Updatemembershipsbyrelationships($params) {
   $membershipTypes = new CRM_Membershiprelationshiptypeeditor_MembershipType();
-  $membershipTypesProcessed = $membershipTypes->process();
+  $membershipTypeIdProcessed = $membershipTypes->process();
 
   $response = [
-    'processed' => $membershipTypesProcessed,
-    'count'     => count($membershipTypesProcessed),
+    'processed' => $membershipTypeIdProcessed,
+    'count'     => 1,
   ];
 
   return civicrm_api3_create_success($response, $params, 'MembershipType', 'Updatemembershipsbyrelationships');

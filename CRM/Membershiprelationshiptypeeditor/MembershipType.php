@@ -7,59 +7,64 @@ use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
 class CRM_Membershiprelationshiptypeeditor_MembershipType {
 
   /**
-   * Process the queued updated membership types.
-   * Note that this function will remove all membership types from the queue that are processed successfully
+   * Processes a single membership type from the queue and removes it.
    *
-   * @return array
+   * @return int|null The ID of the processed membership type, or null if queue was empty.
    * @throws CRM_Core_Exception
    */
   public function process() {
-    // Retrieve the Membership types in the queue "setting"
-    $membershipTypesToProcess = Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
+    // Retrieve the Membership types queue from CiviCRM settings.
+    $membershipTypesToProcess = \Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
+
     if (empty($membershipTypesToProcess) || !is_array($membershipTypesToProcess)) {
-      return [];
+      return NULL;
     }
 
-    $toRemoveMembershipTypes = [];
+    // Identify the first ID in the associative array.
+    reset($membershipTypesToProcess);
+    $membershipTypeID = (int) key($membershipTypesToProcess);
 
-    $filtered = array_filter($membershipTypesToProcess);
+    if (!$membershipTypeID) {
+      return NULL;
+    }
 
-    $loadedMembershipTypes = MembershipType::get(FALSE)
-                                           ->addWhere('id', 'IN', array_keys($filtered))
-                                           ->execute()
-                                           ->indexBy('id');
+    // Fetch the specific membership type
+    $membershipType = MembershipType::get(FALSE)
+      ->addSelect('id', 'relationship_type_id')
+      ->addWhere('id', '=', $membershipTypeID)
+      ->execute()
+      ->first();
 
-    foreach (array_keys($membershipTypesToProcess) as $membershipTypeIDToProcess) {
-      $membershipType = $loadedMembershipTypes[$membershipTypeIDToProcess] ?? NULL;
-
-      if (empty($membershipType)) {
-        // Membership type not found, Remove it.
-        \Civi::log(E::SHORT_NAME)->error("Error: Membership type with ID: {$membershipTypeIDToProcess} not found.");
-        $toRemoveMembershipTypes[] = $membershipTypeIDToProcess;
-        continue;
-      }
-
-      // Remove and then re-add all inherit memberships for the given relationship type, then remove from the queue.
+    if (empty($membershipType)) {
+      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Not found or inactive. Removing from queue.");
+      // Note: The ID is still removed below to prevent infinite loops on fatal logic errors.
+    } else {
+      // Execute inherited membership rebuild for this Membership Type
       try {
-        $this->deleteChildMemberships($membershipTypeIDToProcess);
-        $this->updateRelatedMemberships($membershipTypeIDToProcess);
-        $toRemoveMembershipTypes[] = $membershipTypeIDToProcess;
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Started processing.");
+        $this->deleteChildMemberships($membershipTypeID);
+
+        // Check if any Relationships are set for this Membership Type
+        if (empty($membershipType['relationship_type_id'])) {
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. No Relationship Types set, skipping related memberships update.");
+        } else {
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Starting related memberships update.");
+          $this->updateRelatedMemberships($membershipTypeID);
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed related memberships update.");
+        }
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed processing.");
       }
-      catch (Exception $e) {
-        \Civi::log(E::SHORT_NAME)->error("Error processing membership type ID: {$membershipTypeIDToProcess}: " . $e->getMessage());
+      catch (\Exception $e) {
+        \Civi::log(E::SHORT_NAME)->error("Error processing Membership Type ID: {$membershipTypeID}. " . $e->getMessage());
+        // Note: The ID is still removed below to prevent infinite loops on fatal logic errors.
       }
     }
 
-    foreach ($toRemoveMembershipTypes as $toRemoveMembershipType) {
-      if (isset($membershipTypesToProcess[$toRemoveMembershipType])) {
-        unset($membershipTypesToProcess[$toRemoveMembershipType]);
-      }
-    }
+    // Remove the processed (or invalid) ID and update the persistent setting.
+    unset($membershipTypesToProcess[$membershipTypeID]);
+    \Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $membershipTypesToProcess);
 
-    // Reset the queue to include only membership types that failed to process this time.
-    Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $membershipTypesToProcess);
-
-    return $toRemoveMembershipTypes;
+    return $membershipTypeID;
   }
 
   /**
@@ -69,19 +74,33 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
    * @throws CRM_Core_Exception
    */
   private function updateRelatedMemberships(int $membershipTypeId) {
-    // Get all the "owner" memberships for the specified membership type
-    $ownerMemberships = Membership::get(FALSE)
-      ->addWhere('owner_membership_id', 'IS NULL')
-      ->addWhere('membership_type_id', '=', $membershipTypeId)
-      ->execute();
+    try {
+      // Get all the "owner" memberships for the specified membership type
 
-    // Create related (inherited) memberships for each of the "owner" memberships.
-    foreach ($ownerMemberships as $ownerMembership) {
-      $ownerMembershipBAO = new CRM_Member_BAO_Membership();
-      $ownerMembershipBAO->id = $ownerMembership['id'];
-      if ($ownerMembershipBAO->find(TRUE)) {
-        CRM_Member_BAO_Membership::createRelatedMemberships($ownerMembership, $ownerMembershipBAO);
+      $ownerMemberships = Membership::get(FALSE)
+        ->addWhere('owner_membership_id', 'IS NULL')
+        ->addWhere('membership_type_id', '=', $membershipTypeId)
+        ->execute();
+
+      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Retrieved all the Owner Memberships.");
+
+      // Create related (inherited) memberships for each of the "owner" memberships.
+      foreach ($ownerMemberships as $ownerMembership) {
+
+        $ownerMembershipBAO = new CRM_Member_BAO_Membership();
+        $ownerMembershipBAO->id = $ownerMembership['id'];
+
+        $ownerMembershipId = $ownerMembership['id'];
+
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Search for inherited memberships for Owner Membership ID: {$ownerMembershipId}");
+
+        if ($ownerMembershipBAO->find(TRUE)) {
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Create inherited memberships for Owner Membership ID: {$ownerMembershipId}");
+          CRM_Member_BAO_Membership::createRelatedMemberships($ownerMembership, $ownerMembershipBAO);
+        }
       }
+    } catch (Exception $e) {
+      \Civi::log(E::SHORT_NAME)->error("Error processing Membership Type ID: {$membershipTypeId}: " . $e->getMessage());
     }
   }
 
