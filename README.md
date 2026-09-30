@@ -96,9 +96,6 @@ Type is retried after the others have had a turn, and is removed with a logged e
 attempts that do not complete, so one failing Membership Type cannot hold up the rest. A run that
 starts while another is still working skips itself.
 
-If you have a large number of Membership Types and/or Memberships, you may need to adjust the
-scheduling of these two jobs so that they do not overlap.
-
 If the [CronPlus](https://civicrm.org/extensions/cron-plus) extension is installed and enabled
 when this extension is installed, both Scheduled Jobs are additionally configured with a CronPlus
 schedule (1am daily / midnight on the 1st of the month respectively). CronPlus is optional; it is

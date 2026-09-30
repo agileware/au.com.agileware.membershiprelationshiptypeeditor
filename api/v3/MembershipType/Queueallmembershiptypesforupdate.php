@@ -21,14 +21,13 @@ function civicrm_api3_membership_type_Queueallmembershiptypesforupdate($params) 
     ->addWhere('is_active', '=', TRUE)
     ->execute();
 
-  // Queue setting is [ membership_type_id => TRUE, ... ]
-  $membershipTypes = array_fill_keys($membershipTypes->column('id'), TRUE);
-
-  // Override for the next update run
-  Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $membershipTypes);
+  // Add to, rather than overwrite, the queue: types already waiting keep their
+  // place and attempt count, and inactive types queued by hand stay queued.
+  $membershipTypeIds = $membershipTypes->column('id');
+  CRM_Membershiprelationshiptypeeditor_Queue::add($membershipTypeIds);
 
   // Always success.
   return civicrm_api3_create_success([
-    'success' => count($membershipTypes),
+    'success' => count($membershipTypeIds),
   ], $params, 'MembershipType', 'Queueallmembershipshiptypeforupdate');
 }
