@@ -125,9 +125,9 @@ This extension adds the following CiviCRM API v3 actions on the `MembershipType`
 
 No special configuration, credentials, or dependent extensions are required. After enabling the
 extension, confirm that the **Update Memberships based on Membershiptypes** Scheduled Job is
-active (it is enabled by default with a Daily run frequency). No CiviCRM permissions beyond
-"access CiviCRM" (settings page) and "administer CiviCRM" (navigation menu items) are required to
-use the extension's UI.
+active (it is enabled by default with a Daily run frequency). The settings page and its menu item
+require the "administer CiviCRM" permission, because queued recalculations delete and recreate
+inherited memberships.
 
 ## Requirements
 
