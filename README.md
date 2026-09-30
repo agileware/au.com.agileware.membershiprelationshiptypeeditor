@@ -104,11 +104,11 @@ only used to set a specific cron schedule for these jobs if present.
 ### Settings page
 
 Go to **Administer / Membership Relationship Type Editor / Settings**
-(`civicrm/membershiprelationshiptypeeditor/settings`) to manually add Membership Types to the
-processing queue. This is useful if you want to force a recalculation for specific Membership
-Types without waiting for the automatic detection of a Relationship Type change, or without
-running the monthly "queue all" job. The form shows which Membership Types are currently queued
-and lets you select additional ones to add.
+(`civicrm/membershiprelationshiptypeeditor/settings`) to see and change the processing queue. The
+form shows which Membership Types are currently queued. Add Membership Types to force a
+recalculation without waiting for the automatic detection of a Relationship Type change, or
+without running the monthly "queue all" job; remove them to stop a queued recalculation. Saving
+makes the queue exactly the selected Membership Types.
 
 ### API
 

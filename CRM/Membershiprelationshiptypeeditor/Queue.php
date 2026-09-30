@@ -57,6 +57,18 @@ class CRM_Membershiprelationshiptypeeditor_Queue {
   }
 
   /**
+   * Make the queue exactly these membership types. Types that stay queued keep
+   * their place and their attempt count.
+   *
+   * @param int[] $membershipTypeIds
+   */
+  public static function replace(array $membershipTypeIds): void {
+    $keep = array_fill_keys(array_map('intval', $membershipTypeIds), TRUE);
+    self::save(array_intersect_key(self::get(), $keep));
+    self::add($membershipTypeIds);
+  }
+
+  /**
    * Take the next membership type to process.
    *
    * The type moves to the back of the queue, with its attempt count raised,

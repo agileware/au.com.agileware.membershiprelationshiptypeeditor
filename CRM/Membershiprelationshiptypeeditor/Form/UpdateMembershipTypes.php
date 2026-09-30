@@ -3,8 +3,8 @@
 use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
 
 /**
- * Form controller class
- *
+ * Shows the processing queue and lets an administrator add membership types
+ * to it or take them out.
  */
 class CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes extends CRM_Core_Form {
 
@@ -16,7 +16,7 @@ class CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes extends CR
       'membership_types',
         E::ts('Membership Types'),
       $this->getMembershipTypes(),
-      TRUE,
+      FALSE,
       [
         'multiple' => TRUE,
       ]
@@ -26,7 +26,7 @@ class CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes extends CR
     $this->addButtons([
       [
         'type' => 'submit',
-        'name' => E::ts('Update Selected Membership Types'),
+        'name' => E::ts('Save Queue'),
         'isDefault' => TRUE,
       ],
     ]);
@@ -57,14 +57,12 @@ class CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes extends CR
 
   public function postProcess() {
     $values = $this->exportValues();
-    $membershipTypes = explode(',', $values['membership_types']);
+    $membershipTypes = array_filter(explode(',', $values['membership_types'] ?? ''));
 
-    civicrm_api3('MembershipType', 'addmembershiptypesinqueue', [
-      'membershiptypes' => $membershipTypes,
-    ]);
+    CRM_Membershiprelationshiptypeeditor_Queue::replace($membershipTypes);
 
     CRM_Core_Session::setStatus(
-      E::ts('Selected membership types has been added into queue.'),
+      E::ts('The queue now holds the selected membership types.'),
       E::ts('Update Membership Types'), 'success');
 
     CRM_Utils_System::redirect(CRM_Utils_System::url('civicrm/membershiprelationshiptypeeditor/settings'));
