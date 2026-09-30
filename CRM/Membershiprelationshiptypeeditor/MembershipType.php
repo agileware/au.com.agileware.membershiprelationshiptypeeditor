@@ -13,16 +13,8 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
    * @throws CRM_Core_Exception
    */
   public function process() {
-    // Retrieve the Membership types queue from CiviCRM settings.
-    $membershipTypesToProcess = \Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
-
-    if (empty($membershipTypesToProcess) || !is_array($membershipTypesToProcess)) {
-      return NULL;
-    }
-
-    // Identify the first ID in the associative array.
-    reset($membershipTypesToProcess);
-    $membershipTypeID = (int) key($membershipTypesToProcess);
+    // The first membership type in the queue.
+    $membershipTypeID = array_key_first(CRM_Membershiprelationshiptypeeditor_Queue::get());
 
     if (!$membershipTypeID) {
       return NULL;
@@ -60,9 +52,8 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
       }
     }
 
-    // Remove the processed (or invalid) ID and update the persistent setting.
-    unset($membershipTypesToProcess[$membershipTypeID]);
-    \Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $membershipTypesToProcess);
+    // Remove the processed (or invalid) ID from the queue.
+    CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
 
     return $membershipTypeID;
   }

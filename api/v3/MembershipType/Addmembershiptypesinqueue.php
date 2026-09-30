@@ -30,20 +30,9 @@ function _civicrm_api3_membership_type_Addmembershiptypesinqueue_spec(&$spec) {
  * @throws API_Exception
  */
 function civicrm_api3_membership_type_Addmembershiptypesinqueue($params) {
-  $membershipTypes = $params['membershiptypes'];
-  if ($membershipTypes != '' && !is_array($membershipTypes)) {
-    $membershipTypes = [$membershipTypes];
-  }
+  $membershipTypes = (array) $params['membershiptypes'];
+  CRM_Membershiprelationshiptypeeditor_Queue::add($membershipTypes);
 
-  $typesToProcess = Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
-  if ($typesToProcess == '' || $typesToProcess == NULL) {
-    $typesToProcess = [];
-  }
-
-  foreach ($membershipTypes as $membershipType) {
-    $typesToProcess[$membershipType] = TRUE;
-  }
-  Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $typesToProcess);
   return civicrm_api3_create_success([
     'success' => count($membershipTypes),
   ], $params, 'MembershipType', 'Updatemembershipsbyrelationships');

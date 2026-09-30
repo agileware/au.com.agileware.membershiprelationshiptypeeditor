@@ -60,27 +60,12 @@ function membershiprelationshiptypeeditor_civicrm_buildForm($formName, &$form) {
  */
 function membershiprelationshiptypeeditor_civicrm_postProcess($formName, &$form) {
   if ($formName == "CRM_Member_Form_MembershipType" && isset($form->_id) && isset($form->_action) && $form->_action == CRM_Core_Action::UPDATE) {
-    $defaultRelationshipTypes = $form->_defaultValues['relationship_type_id'];
-    $submittedRelationshipTypes = $form->_submitValues['relationship_type_id'];
+    $defaultRelationshipTypes = (array) ($form->_defaultValues['relationship_type_id'] ?? []);
+    $submittedRelationshipTypes = (array) ($form->_submitValues['relationship_type_id'] ?? []);
 
-    if (!is_array($defaultRelationshipTypes)) {
-      $defaultRelationshipTypes = [];
-    }
-
-    if (!is_array($submittedRelationshipTypes)) {
-      $submittedRelationshipTypes = [];
-    }
-
-    $modifiedRelationshipTypes = array_diff($defaultRelationshipTypes, $submittedRelationshipTypes);
-    $modifiedRelationshipTypes = array_merge(array_diff($submittedRelationshipTypes, $defaultRelationshipTypes), $modifiedRelationshipTypes);
-
-    if (count($modifiedRelationshipTypes) > 0) {
-      $typesToProcess = Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process');
-      if ($typesToProcess == '' || $typesToProcess == NULL) {
-        $typesToProcess = [];
-      }
-      $typesToProcess[$form->_id] = TRUE;
-      Civi::settings()->set('membershiprelationshiptypeeditor_mtypes_process', $typesToProcess);
+    // Values are "<relationship type ID>_<direction>", so a change of direction counts too.
+    if (array_diff($defaultRelationshipTypes, $submittedRelationshipTypes) || array_diff($submittedRelationshipTypes, $defaultRelationshipTypes)) {
+      CRM_Membershiprelationshiptypeeditor_Queue::add([$form->_id]);
     }
   }
 }
