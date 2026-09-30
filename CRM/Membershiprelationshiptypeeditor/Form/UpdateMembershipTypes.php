@@ -21,12 +21,7 @@ class CRM_Membershiprelationshiptypeeditor_Form_UpdateMembershipTypes extends CR
         'multiple' => TRUE,
       ]
     );
-    // Set the form defaults to the membership type keys that are TRUE in the setting
-    $defaults['membership_types'] = array_keys(
-      array_filter(
-        Civi::settings()->get('membershiprelationshiptypeeditor_mtypes_process')
-      )
-    );
+    $defaults['membership_types'] = array_keys(CRM_Membershiprelationshiptypeeditor_Queue::get());
 
     $this->addButtons([
       [
