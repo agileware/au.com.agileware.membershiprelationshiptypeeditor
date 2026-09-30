@@ -13,42 +13,55 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
    *   The membership type ID, or NULL if nothing was processed.
    */
   public function process() {
-    $membershipTypeID = CRM_Membershiprelationshiptypeeditor_Queue::claimNext();
-    if (!$membershipTypeID) {
+    // The job manager does not stop two runs overlapping (cron plus a manual
+    // run, say); both would rebuild the same memberships at once.
+    $lock = \Civi::lockManager()->acquire('worker.membershiprelationshiptypeeditor');
+    if (!$lock->isAcquired()) {
+      \Civi::log(E::SHORT_NAME)->info('Another run is still processing the queue. Skipping this run.');
       return NULL;
     }
 
-    $membershipType = MembershipType::get(FALSE)
-      ->addSelect('id', 'relationship_type_id')
-      ->addWhere('id', '=', $membershipTypeID)
-      ->execute()
-      ->first();
-
-    if (empty($membershipType)) {
-      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Not found. Removing from queue.");
-      CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
-      return $membershipTypeID;
-    }
-
     try {
-      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Started processing.");
-      $this->deleteChildMemberships($membershipTypeID);
-
-      if (empty($membershipType['relationship_type_id'])) {
-        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. No Relationship Types set, skipping related memberships update.");
-      }
-      else {
-        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Starting related memberships update.");
-        $this->updateRelatedMemberships($membershipTypeID);
-        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed related memberships update.");
+      $membershipTypeID = CRM_Membershiprelationshiptypeeditor_Queue::claimNext();
+      if (!$membershipTypeID) {
+        return NULL;
       }
 
-      CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
-      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed processing.");
+      $membershipType = MembershipType::get(FALSE)
+        ->addSelect('id', 'relationship_type_id')
+        ->addWhere('id', '=', $membershipTypeID)
+        ->execute()
+        ->first();
+
+      if (empty($membershipType)) {
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Not found. Removing from queue.");
+        CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
+        return $membershipTypeID;
+      }
+
+      try {
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Started processing.");
+        $this->deleteChildMemberships($membershipTypeID);
+
+        if (empty($membershipType['relationship_type_id'])) {
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. No Relationship Types set, skipping related memberships update.");
+        }
+        else {
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Starting related memberships update.");
+          $this->updateRelatedMemberships($membershipTypeID);
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed related memberships update.");
+        }
+
+        CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed processing.");
+      }
+      catch (\Exception $e) {
+        // Left in the queue: claimNext() retries it, up to Queue::MAX_ATTEMPTS.
+        \Civi::log(E::SHORT_NAME)->error("Error processing Membership Type ID: {$membershipTypeID}. " . $e->getMessage());
+      }
     }
-    catch (\Exception $e) {
-      // Left in the queue: claimNext() retries it, up to Queue::MAX_ATTEMPTS.
-      \Civi::log(E::SHORT_NAME)->error("Error processing Membership Type ID: {$membershipTypeID}. " . $e->getMessage());
+    finally {
+      $lock->release();
     }
 
     return $membershipTypeID;
