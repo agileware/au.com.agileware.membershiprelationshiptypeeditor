@@ -7,20 +7,17 @@ use CRM_Membershiprelationshiptypeeditor_ExtensionUtil as E;
 class CRM_Membershiprelationshiptypeeditor_MembershipType {
 
   /**
-   * Processes a single membership type from the queue and removes it.
+   * Rebuilds the inherited memberships of the next queued membership type.
    *
-   * @return int|null The ID of the processed membership type, or null if queue was empty.
-   * @throws CRM_Core_Exception
+   * @return int|null
+   *   The membership type ID, or NULL if nothing was processed.
    */
   public function process() {
-    // The first membership type in the queue.
-    $membershipTypeID = array_key_first(CRM_Membershiprelationshiptypeeditor_Queue::get());
-
+    $membershipTypeID = CRM_Membershiprelationshiptypeeditor_Queue::claimNext();
     if (!$membershipTypeID) {
       return NULL;
     }
 
-    // Fetch the specific membership type
     $membershipType = MembershipType::get(FALSE)
       ->addSelect('id', 'relationship_type_id')
       ->addWhere('id', '=', $membershipTypeID)
@@ -28,32 +25,31 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
       ->first();
 
     if (empty($membershipType)) {
-      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Not found or inactive. Removing from queue.");
-      // Note: The ID is still removed below to prevent infinite loops on fatal logic errors.
-    } else {
-      // Execute inherited membership rebuild for this Membership Type
-      try {
-        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Started processing.");
-        $this->deleteChildMemberships($membershipTypeID);
-
-        // Check if any Relationships are set for this Membership Type
-        if (empty($membershipType['relationship_type_id'])) {
-          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. No Relationship Types set, skipping related memberships update.");
-        } else {
-          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Starting related memberships update.");
-          $this->updateRelatedMemberships($membershipTypeID);
-          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed related memberships update.");
-        }
-        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed processing.");
-      }
-      catch (\Exception $e) {
-        \Civi::log(E::SHORT_NAME)->error("Error processing Membership Type ID: {$membershipTypeID}. " . $e->getMessage());
-        // Note: The ID is still removed below to prevent infinite loops on fatal logic errors.
-      }
+      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Not found. Removing from queue.");
+      CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
+      return $membershipTypeID;
     }
 
-    // Remove the processed (or invalid) ID from the queue.
-    CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
+    try {
+      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Started processing.");
+      $this->deleteChildMemberships($membershipTypeID);
+
+      if (empty($membershipType['relationship_type_id'])) {
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. No Relationship Types set, skipping related memberships update.");
+      }
+      else {
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Starting related memberships update.");
+        $this->updateRelatedMemberships($membershipTypeID);
+        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed related memberships update.");
+      }
+
+      CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
+      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed processing.");
+    }
+    catch (\Exception $e) {
+      // Left in the queue: claimNext() retries it, up to Queue::MAX_ATTEMPTS.
+      \Civi::log(E::SHORT_NAME)->error("Error processing Membership Type ID: {$membershipTypeID}. " . $e->getMessage());
+    }
 
     return $membershipTypeID;
   }

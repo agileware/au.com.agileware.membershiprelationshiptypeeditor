@@ -89,6 +89,11 @@ This extension provides two Scheduled Jobs (**Administer / System Settings / Sch
   This is intended as a safety net to catch any memberships that may have been missed by the
   regular recalculation process.
 
+A queued Membership Type moves to the back of the queue when a run starts on it and leaves the
+queue when it completes. If a run dies part-way (for example on a PHP timeout), that Membership
+Type is retried after the others have had a turn, and is removed with a logged error after 3
+attempts that do not complete, so one failing Membership Type cannot hold up the rest.
+
 If you have a large number of Membership Types and/or Memberships, you may need to adjust the
 scheduling of these two jobs so that they do not overlap.
 
