@@ -35,5 +35,5 @@ function civicrm_api3_membership_type_Addmembershiptypesinqueue($params) {
 
   return civicrm_api3_create_success([
     'success' => count($membershipTypes),
-  ], $params, 'MembershipType', 'Updatemembershipsbyrelationships');
+  ], $params, 'MembershipType', 'Addmembershiptypesinqueue');
 }

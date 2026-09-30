@@ -29,5 +29,5 @@ function civicrm_api3_membership_type_Queueallmembershiptypesforupdate($params) 
   // Always success.
   return civicrm_api3_create_success([
     'success' => count($membershipTypeIds),
-  ], $params, 'MembershipType', 'Queueallmembershipshiptypeforupdate');
+  ], $params, 'MembershipType', 'Queueallmembershiptypesforupdate');
 }
