@@ -84,6 +84,11 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
 
       \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Retrieved all the Owner Memberships.");
 
+      // The same relationship lookup core uses when it passes memberships on.
+      $loopDetector = new CRM_Membershiprelationshiptypeeditor_InheritanceLoopDetector(
+        fn(int $contactId) => array_keys(CRM_Member_BAO_Membership::checkMembershipRelationship($membershipTypeId, $contactId))
+      );
+
       // Create related (inherited) memberships for each of the "owner" memberships.
       foreach ($ownerMemberships as $ownerMembership) {
 
@@ -92,11 +97,23 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
 
         $ownerMembershipId = $ownerMembership['id'];
 
+        $loop = $loopDetector->findLoop((int) $ownerMembership['contact_id']);
+        if ($loop) {
+          \Civi::log(E::SHORT_NAME)->error("Membership Type ID: {$membershipTypeId}. Skipped Owner Membership ID: {$ownerMembershipId}: inheritance loops through contacts " . implode(' -> ', $loop) . '. Change the relationship types on the membership type, or the relationships between these contacts, so the membership cannot return to a contact that already has it.');
+          continue;
+        }
+
         \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Search for inherited memberships for Owner Membership ID: {$ownerMembershipId}");
 
-        if ($ownerMembershipBAO->find(TRUE)) {
-          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Create inherited memberships for Owner Membership ID: {$ownerMembershipId}");
-          CRM_Member_BAO_Membership::createRelatedMemberships($ownerMembership, $ownerMembershipBAO);
+        try {
+          if ($ownerMembershipBAO->find(TRUE)) {
+            \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Create inherited memberships for Owner Membership ID: {$ownerMembershipId}");
+            CRM_Member_BAO_Membership::createRelatedMemberships($ownerMembership, $ownerMembershipBAO);
+          }
+        }
+        catch (CRM_Membershiprelationshiptypeeditor_InheritanceLoopException $e) {
+          // A loop the detector missed, stopped by the pre hook guard.
+          \Civi::log(E::SHORT_NAME)->error("Membership Type ID: {$membershipTypeId}. Skipped Owner Membership ID: {$ownerMembershipId}: " . $e->getMessage());
         }
       }
     } catch (Exception $e) {

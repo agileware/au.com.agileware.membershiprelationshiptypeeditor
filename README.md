@@ -34,6 +34,35 @@ extension:
      the current Relationship Types configured on the Membership Type.
 4. This process may take some time to complete, depending on the number of affected memberships.
 
+### Inheritance loops
+
+CiviCRM passes inherited memberships on through relationships, and passes them on again from
+each inherited membership. If the Relationship Types on a Membership Type let a membership travel
+in a circle, for example organisation → CEO → CEO's EA → back to the organisation, CiviCRM core
+creates new inherited memberships around that circle without end, with a "Membership Signup"
+activity for each, until the process dies. Core only stops a membership going straight back to
+the contact it came from.
+
+A common cause is a Relationship Type with the same name in both directions (such as "Member
+Contact" / "Member Contact"). CiviCRM treats such a type as two-way and ignores the direction
+chosen on the Membership Type, and the Membership Type form only offers one of the two directions.
+Editing the labels on the Relationship Type form does not fix it: the internal names
+(`name_a_b` / `name_b_a`) must differ, and they can only be changed through the API.
+
+This extension protects against loops in two ways:
+
+* Before creating inherited memberships for an owner membership, the Scheduled Job checks the
+  relationships that membership would pass through. If they loop, it skips that owner membership,
+  logs the contacts around the loop, and carries on with the rest.
+* Wherever an inherited membership is saved (renewals, the "Update Membership Statuses" job,
+  relationship edits, imports), the extension refuses to save one that would pass a membership
+  back to a contact it was already inherited from. The save fails with an error naming the
+  contacts, instead of running away.
+
+To resolve a loop, change the Relationship Types on the Membership Type, or the relationships
+between the named contacts, so that the membership cannot return to a contact that already has
+it, then queue the Membership Type again.
+
 ## Usage
 
 1. Go to **Administer / CiviMember / Membership Types** and edit an existing Membership Type.

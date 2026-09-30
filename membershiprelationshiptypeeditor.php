@@ -86,6 +86,18 @@ function membershiprelationshiptypeeditor_civicrm_postProcess($formName, &$form)
 }
 
 /**
+ * Refuse to save an inherited membership that would loop back to a contact it
+ * was inherited from, wherever core is saving it.
+ *
+ * @see CRM_Membershiprelationshiptypeeditor_InheritanceLoopGuard
+ */
+function membershiprelationshiptypeeditor_civicrm_pre($op, $objectName, $id, &$params) {
+  if ($objectName === 'Membership' && ($op === 'create' || $op === 'edit') && is_array($params)) {
+    CRM_Membershiprelationshiptypeeditor_InheritanceLoopGuard::check($params);
+  }
+}
+
+/**
  * Manipulates CiviCRM menu.
  *
  * @param $menu
