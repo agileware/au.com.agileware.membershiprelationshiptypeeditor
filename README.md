@@ -53,7 +53,8 @@ This extension protects against loops in two ways:
 
 * Before creating inherited memberships for an owner membership, the Scheduled Job checks the
   relationships that membership would pass through. If they loop, it skips that owner membership,
-  logs the contacts around the loop, and carries on with the rest.
+  logs the contacts around the loop, and carries on with the rest. Skipped owner memberships are
+  listed in the job's result (`skipped_owner_memberships`), which appears in the Scheduled Job log.
 * Wherever an inherited membership is saved (renewals, the "Update Membership Statuses" job,
   relationship edits, imports), the extension refuses to save one that would pass a membership
   back to a contact it was already inherited from. The save fails with an error naming the

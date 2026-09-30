@@ -22,12 +22,10 @@ function _civicrm_api3_membership_type_Updatemembershipsbyrelationships_spec(&$s
  */
 function civicrm_api3_membership_type_Updatemembershipsbyrelationships($params) {
   $membershipTypes = new CRM_Membershiprelationshiptypeeditor_MembershipType();
-  $membershipTypeIdProcessed = $membershipTypes->process();
+  $response = $membershipTypes->process();
+  $response['count'] = $response['processed'] ? 1 : 0;
 
-  $response = [
-    'processed' => $membershipTypeIdProcessed,
-    'count'     => 1,
-  ];
-
+  // Shown in the scheduled job log, so skipped and failed owner memberships
+  // are visible there without reading the CiviCRM log.
   return civicrm_api3_create_success($response, $params, 'MembershipType', 'Updatemembershipsbyrelationships');
 }

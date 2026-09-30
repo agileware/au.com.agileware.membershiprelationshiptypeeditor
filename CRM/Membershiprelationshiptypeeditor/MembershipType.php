@@ -9,23 +9,33 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
   /**
    * Rebuilds the inherited memberships of the next queued membership type.
    *
-   * @return int|null
-   *   The membership type ID, or NULL if nothing was processed.
+   * @return array
+   *   - processed: the membership type ID, or NULL if nothing was processed.
+   *   - skipped_owner_memberships: owner membership IDs left alone because
+   *     their inheritance loops.
+   *   - failed_owner_memberships: owner membership IDs that raised an error.
    */
-  public function process() {
+  public function process(): array {
+    $result = [
+      'processed' => NULL,
+      'skipped_owner_memberships' => [],
+      'failed_owner_memberships' => [],
+    ];
+
     // The job manager does not stop two runs overlapping (cron plus a manual
     // run, say); both would rebuild the same memberships at once.
     $lock = \Civi::lockManager()->acquire('worker.membershiprelationshiptypeeditor');
     if (!$lock->isAcquired()) {
       \Civi::log(E::SHORT_NAME)->info('Another run is still processing the queue. Skipping this run.');
-      return NULL;
+      return $result;
     }
 
     try {
       $membershipTypeID = CRM_Membershiprelationshiptypeeditor_Queue::claimNext();
       if (!$membershipTypeID) {
-        return NULL;
+        return $result;
       }
+      $result['processed'] = $membershipTypeID;
 
       $membershipType = MembershipType::get(FALSE)
         ->addSelect('id', 'relationship_type_id')
@@ -36,7 +46,7 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
       if (empty($membershipType)) {
         \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Not found. Removing from queue.");
         CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
-        return $membershipTypeID;
+        return $result;
       }
 
       try {
@@ -48,14 +58,14 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
         }
         else {
           \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Starting related memberships update.");
-          $this->updateRelatedMemberships($membershipTypeID);
-          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed related memberships update.");
+          $result = array_merge($result, $this->updateRelatedMemberships($membershipTypeID));
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed related memberships update. Owner memberships skipped for loops: " . count($result['skipped_owner_memberships']) . ', failed: ' . count($result['failed_owner_memberships']) . '.');
         }
 
         CRM_Membershiprelationshiptypeeditor_Queue::remove($membershipTypeID);
         \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeID}. Completed processing.");
       }
-      catch (\Exception $e) {
+      catch (\Throwable $e) {
         // Left in the queue: claimNext() retries it, up to Queue::MAX_ATTEMPTS.
         \Civi::log(E::SHORT_NAME)->error("Error processing Membership Type ID: {$membershipTypeID}. " . $e->getMessage());
       }
@@ -64,61 +74,66 @@ class CRM_Membershiprelationshiptypeeditor_MembershipType {
       $lock->release();
     }
 
-    return $membershipTypeID;
+    return $result;
   }
 
   /**
-   * Update related memberships.
+   * Create inherited memberships for every owner membership of a type.
    *
    * @param int $membershipTypeId
-   * @throws CRM_Core_Exception
+   *
+   * @return array
+   *   skipped_owner_memberships and failed_owner_memberships, as for process().
+   * @throws \CRM_Core_Exception
    */
-  private function updateRelatedMemberships(int $membershipTypeId) {
-    try {
-      // Get all the "owner" memberships for the specified membership type
+  private function updateRelatedMemberships(int $membershipTypeId): array {
+    $skipped = $failed = [];
 
-      $ownerMemberships = Membership::get(FALSE)
-        ->addWhere('owner_membership_id', 'IS NULL')
-        ->addWhere('membership_type_id', '=', $membershipTypeId)
-        ->execute();
+    $ownerMemberships = Membership::get(FALSE)
+      ->addWhere('owner_membership_id', 'IS NULL')
+      ->addWhere('membership_type_id', '=', $membershipTypeId)
+      ->execute();
 
-      \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Retrieved all the Owner Memberships.");
+    \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Retrieved all the Owner Memberships.");
 
-      // The same relationship lookup core uses when it passes memberships on.
-      $loopDetector = new CRM_Membershiprelationshiptypeeditor_InheritanceLoopDetector(
-        fn(int $contactId) => array_keys(CRM_Member_BAO_Membership::checkMembershipRelationship($membershipTypeId, $contactId))
-      );
+    // The same relationship lookup core uses when it passes memberships on.
+    $loopDetector = new CRM_Membershiprelationshiptypeeditor_InheritanceLoopDetector(
+      fn(int $contactId) => array_keys(CRM_Member_BAO_Membership::checkMembershipRelationship($membershipTypeId, $contactId))
+    );
 
-      // Create related (inherited) memberships for each of the "owner" memberships.
-      foreach ($ownerMemberships as $ownerMembership) {
+    foreach ($ownerMemberships as $ownerMembership) {
+      $ownerMembershipId = $ownerMembership['id'];
 
+      $loop = $loopDetector->findLoop((int) $ownerMembership['contact_id']);
+      if ($loop) {
+        $skipped[] = $ownerMembershipId;
+        \Civi::log(E::SHORT_NAME)->error("Membership Type ID: {$membershipTypeId}. Skipped Owner Membership ID: {$ownerMembershipId}: inheritance loops through contacts " . implode(' -> ', $loop) . '. Change the relationship types on the membership type, or the relationships between these contacts, so the membership cannot return to a contact that already has it.');
+        continue;
+      }
+
+      try {
         $ownerMembershipBAO = new CRM_Member_BAO_Membership();
-        $ownerMembershipBAO->id = $ownerMembership['id'];
-
-        $ownerMembershipId = $ownerMembership['id'];
-
-        $loop = $loopDetector->findLoop((int) $ownerMembership['contact_id']);
-        if ($loop) {
-          \Civi::log(E::SHORT_NAME)->error("Membership Type ID: {$membershipTypeId}. Skipped Owner Membership ID: {$ownerMembershipId}: inheritance loops through contacts " . implode(' -> ', $loop) . '. Change the relationship types on the membership type, or the relationships between these contacts, so the membership cannot return to a contact that already has it.');
-          continue;
-        }
-
-        \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Search for inherited memberships for Owner Membership ID: {$ownerMembershipId}");
-
-        try {
-          if ($ownerMembershipBAO->find(TRUE)) {
-            \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Create inherited memberships for Owner Membership ID: {$ownerMembershipId}");
-            CRM_Member_BAO_Membership::createRelatedMemberships($ownerMembership, $ownerMembershipBAO);
-          }
-        }
-        catch (CRM_Membershiprelationshiptypeeditor_InheritanceLoopException $e) {
-          // A loop the detector missed, stopped by the pre hook guard.
-          \Civi::log(E::SHORT_NAME)->error("Membership Type ID: {$membershipTypeId}. Skipped Owner Membership ID: {$ownerMembershipId}: " . $e->getMessage());
+        $ownerMembershipBAO->id = $ownerMembershipId;
+        if ($ownerMembershipBAO->find(TRUE)) {
+          \Civi::log(E::SHORT_NAME)->info("Membership Type ID: {$membershipTypeId}. Create inherited memberships for Owner Membership ID: {$ownerMembershipId}");
+          CRM_Member_BAO_Membership::createRelatedMemberships($ownerMembership, $ownerMembershipBAO);
         }
       }
-    } catch (Exception $e) {
-      \Civi::log(E::SHORT_NAME)->error("Error processing Membership Type ID: {$membershipTypeId}: " . $e->getMessage());
+      catch (CRM_Membershiprelationshiptypeeditor_InheritanceLoopException $e) {
+        // A loop the detector missed, stopped by the pre hook guard.
+        $skipped[] = $ownerMembershipId;
+        \Civi::log(E::SHORT_NAME)->error("Membership Type ID: {$membershipTypeId}. Skipped Owner Membership ID: {$ownerMembershipId}: " . $e->getMessage());
+      }
+      catch (\Throwable $e) {
+        $failed[] = $ownerMembershipId;
+        \Civi::log(E::SHORT_NAME)->error("Membership Type ID: {$membershipTypeId}. Error for Owner Membership ID: {$ownerMembershipId}: " . $e->getMessage());
+      }
     }
+
+    return [
+      'skipped_owner_memberships' => $skipped,
+      'failed_owner_memberships' => $failed,
+    ];
   }
 
   /**
