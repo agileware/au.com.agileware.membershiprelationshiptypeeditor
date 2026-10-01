@@ -16,7 +16,7 @@ On the Membership Type edit page, the message "You cannot modify relationship ty
 are membership records associated with this membership type." is suppressed and the inherited
 Relationship Type field is made editable.
 
-The extension is licensed under [AGPL-3.0](LICENSE.txt).
+The extension is licensed under [AGPL-3.0](https://github.com/agileware/au.com.agileware.membershiprelationshiptypeeditor/blob/master/LICENSE.txt).
 
 ## How it works
 
@@ -157,4 +157,4 @@ This CiviCRM extension was developed by the team at [Agileware](https://agilewar
 Support your Australian [CiviCRM](https://civicrm.org) developers, [contact Agileware](https://agileware.com.au/contact) today!
 
 
-![Agileware](logo/agileware-logo.png)
+![Agileware](https://github.com/agileware/au.com.agileware.membershiprelationshiptypeeditor/raw/master/docs/logo/agileware-logo.png)
