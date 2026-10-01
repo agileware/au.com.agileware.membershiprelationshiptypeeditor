@@ -114,8 +114,8 @@ makes the queue exactly the selected Membership Types.
 
 This extension adds the following CiviCRM API v3 actions on the `MembershipType` entity:
 
-* `MembershipType.Addmembershiptypesinqueue` - adds one or more Membership Type IDs to the
-  processing queue.
+* `MembershipType.Addmembershiptypesinqueue` - adds one or more Membership Type IDs (the required
+  `membershiptypes` parameter) to the processing queue.
 * `MembershipType.Queueallmembershiptypesforupdate` - adds every active Membership Type to the
   processing queue.
 * `MembershipType.Updatemembershipsbyrelationships` - processes a single queued Membership Type
@@ -132,6 +132,9 @@ inherited memberships.
 ## Requirements
 
 * CiviCRM 5.51+
+* PHP 8.1+ (the Scheduled Job definitions use array unpacking with string keys)
+* [CronPlus](https://civicrm.org/extensions/cron-plus) is optional and only used to set cron
+  schedules for the Scheduled Jobs
 
 ## Installation (Web UI)
 
