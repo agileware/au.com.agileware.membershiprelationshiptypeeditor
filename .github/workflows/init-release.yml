@@ -1,0 +1,19 @@
+name: Init release
+
+on:
+  workflow_dispatch:
+    inputs:
+      EXCLUDE_PATHS:
+        description: 'Space-separated repo-relative paths to drop from the release branch (e.g. ".github tests .idea")'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  workflows: write
+
+jobs:
+  init-release:
+    uses: agileware/ci-workflows/.github/workflows/civicrm-extension-init-release.yml@main
+    with:
+      EXCLUDE_PATHS: ${{ inputs.EXCLUDE_PATHS }}
